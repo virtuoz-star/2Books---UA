@@ -5,6 +5,7 @@ export type Sentence = {
   en: string;
   uk: string;
   ru: string;
+  paragraph?: number;
 };
 
 export type Passage = {

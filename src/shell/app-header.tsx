@@ -1,4 +1,4 @@
-import { getRouteApi, Link, useRouter } from "@tanstack/react-router";
+import { getRouteApi, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 import { signOut, updateNativeLanguage, type CurrentUser } from "#/auth/session";
@@ -27,6 +27,10 @@ export function useNativeLanguage(): NativeLanguage {
 export function AppShell({ children }: { children: ReactNode }) {
   const { user } = rootRoute.useRouteContext();
   const { settings } = useReaderSettings();
+  const wide = useRouterState({
+    select: (state) =>
+      state.location.pathname === "/admin" || state.location.pathname.startsWith("/admin/"),
+  });
 
   useEffect(() => {
     // Server html lang stays uk. After mount, follow the interface locale.
@@ -35,7 +39,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <ReadingLanguageProvider user={user}>
-      <div className="mx-auto flex min-h-svh w-full max-w-2xl flex-col gap-10 px-6 py-10 sm:py-14">
+      <div
+        className={`mx-auto flex min-h-svh w-full flex-col gap-10 px-6 py-10 sm:px-10 sm:py-14 ${wide ? "max-w-screen-2xl" : "max-w-2xl"}`}
+      >
         <AppHeader user={user} />
         {children}
       </div>
@@ -116,6 +122,11 @@ function AppHeader({ user }: { user: CurrentUser | null }) {
           <Link to="/upload" className="font-medium text-foreground">
             {message(locale, "uploadTitle")}
           </Link>
+          {user?.role === "admin" ? (
+            <Link to="/admin" className="font-medium text-foreground">
+              {message(locale, "adminLink")}
+            </Link>
+          ) : null}
           {user === null ? (
             <Link to="/sign-in" className="font-medium text-foreground">
               {message(locale, "signIn")}

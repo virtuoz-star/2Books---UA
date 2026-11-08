@@ -1,0 +1,7 @@
+# Local secrets for `wrangler` / the Vite Cloudflare plugin. Copy to .dev.vars.
+# Google redirect URI: http://localhost:3001/api/auth/callback/google
+BETTER_AUTH_SECRET=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+# Comma-separated emails that become administrators on sign-in.
+ADMIN_EMAILS=

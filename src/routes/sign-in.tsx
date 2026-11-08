@@ -1,55 +1,45 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 
-import type { AuthResult } from "#/auth/session";
-import { signIn } from "#/auth/session";
+import { googleSignInReady } from "#/auth/session";
 import { message } from "#/i18n/messages";
 import { useReaderSettings } from "#/reader/use-reader-settings";
+import { useNativeLanguage } from "#/shell/app-header";
 
 export const Route = createFileRoute("/sign-in")({
+  validateSearch: (search: Record<string, unknown>): { error?: string } => {
+    if (typeof search.error !== "string" || search.error.length < 1 || search.error.length > 200) {
+      return {};
+    }
+    return { error: search.error };
+  },
+  loader: () => googleSignInReady(),
   component: SignInPage,
 });
 
-const fieldClass =
-  "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground";
 const buttonClass =
-  "cursor-pointer rounded-md border-0 bg-primary px-3 py-2 text-sm font-medium text-primary-foreground";
-
-type AuthError = Extract<AuthResult, { ok: false }>["error"];
-
-function signInMessage(
-  locale: Parameters<typeof message>[0],
-  error: AuthError | null,
-): string | null {
-  if (error === "invalid-credentials") return message(locale, "invalidCredentials");
-  if (error === "invalid-input") return message(locale, "invalidInput");
-  return null;
-}
+  "cursor-pointer rounded-md border-0 bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-default disabled:opacity-60";
 
 function SignInPage() {
-  const navigate = useNavigate();
+  const ready = Route.useLoaderData();
+  const { error: authError } = Route.useSearch();
   const { settings } = useReaderSettings();
+  const nativeLanguage = useNativeLanguage();
   const locale = settings.interfaceLocale;
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<AuthError | null>(null);
   const [pending, setPending] = useState(false);
-  const errorMessage = signInMessage(locale, error);
+  const [failed, setFailed] = useState(false);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function onGoogle() {
     if (pending) return;
     setPending(true);
-    setError(null);
+    setFailed(false);
     try {
-      const result = await signIn({ data: { email, password } });
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      await navigate({ to: "/" });
+      // Imported on click. A static import pulls a second React into the server render.
+      const { signInWithGoogle } = await import("#/auth/client");
+      const result = await signInWithGoogle(nativeLanguage);
+      if (result.error) setFailed(true);
     } catch {
-      setError("invalid-input");
+      setFailed(true);
     } finally {
       setPending(false);
     }
@@ -58,47 +48,23 @@ function SignInPage() {
   return (
     <main className="flex w-full max-w-2xl flex-col gap-6">
       <h1 className="text-2xl font-semibold text-foreground">{message(locale, "signIn")}</h1>
-      <form className="flex flex-col gap-4" onSubmit={(event) => void onSubmit(event)}>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="email" className="text-sm font-medium text-foreground">
-            {message(locale, "email")}
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className={fieldClass}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="password" className="text-sm font-medium text-foreground">
-            {message(locale, "password")}
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className={fieldClass}
-          />
-        </div>
-        {errorMessage ? (
-          <p role="alert" className="text-sm text-foreground">
-            {errorMessage}
-          </p>
-        ) : null}
-        <button type="submit" disabled={pending} className={buttonClass}>
-          {message(locale, "signIn")}
+      {ready ? (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => void onGoogle()}
+          className={buttonClass}
+        >
+          {message(locale, "signInWithGoogle")}
         </button>
-      </form>
-      <Link to="/sign-up" className="text-sm text-foreground underline">
-        {message(locale, "needAccount")}
-      </Link>
+      ) : (
+        <p className="text-base text-foreground">{message(locale, "googleNotConfigured")}</p>
+      )}
+      {failed || authError ? (
+        <p role="alert" className="text-sm text-foreground">
+          {message(locale, "googleSignInFailed")}
+        </p>
+      ) : null}
     </main>
   );
 }

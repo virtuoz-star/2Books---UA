@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
 
 import type { CurrentUser } from "#/auth/session";
+import type { BookSummary } from "#/content/catalog";
 import { prepareUpload } from "#/library/upload-input";
 
 export type MyBookSummary = {
@@ -58,30 +59,42 @@ export const loadReaderBook = createServerFn({ method: "GET" })
     }
   });
 
+async function publicCatalog(): Promise<BookSummary[]> {
+  try {
+    const { listCatalogSummaries } = await import("#/library/books.server");
+    return await listCatalogSummaries();
+  } catch {
+    const { bookSummary, catalogBooks } = await import("#/content/catalog");
+    return catalogBooks.map((book) => bookSummary(book));
+  }
+}
+
 export const loadLibraryHome = createServerFn({ method: "GET" }).handler(
   async (): Promise<{
     user: CurrentUser | null;
+    catalog: BookSummary[];
     myBooks: MyBookSummary[];
     progress: ReadingProgress | null;
   }> => {
     privateNoStore();
+    const catalog = await publicCatalog();
     let user: CurrentUser | null = null;
     try {
       const { readCurrentUser } = await import("#/auth/session.server");
       user = await readCurrentUser();
     } catch {
-      return { user: null, myBooks: [], progress: null };
+      return { user: null, catalog, myBooks: [], progress: null };
     }
-    if (!user) return { user: null, myBooks: [], progress: null };
+    if (!user) return { user: null, catalog, myBooks: [], progress: null };
     try {
       const { latestProgress, listMyBooks } = await import("#/library/books.server");
       const [myBooks, progress] = await Promise.all([
         listMyBooks(user.id),
         latestProgress(user.id),
       ]);
-      return { user, myBooks, progress };
+      return { user, catalog, myBooks, progress };
     } catch {
-      return { user, myBooks: [], progress: null };
+      return { user, catalog, myBooks: [], progress: null };
     }
   },
 );

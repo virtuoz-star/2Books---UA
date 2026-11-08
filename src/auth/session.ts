@@ -1,14 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
 
-import { normalizeEmail } from "#/auth/email";
-import { passwordAcceptable } from "#/auth/password";
-
-export type CurrentUser = { id: string; email: string; nativeLanguage: "uk" | "ru" };
-
-export type AuthResult =
-  | { ok: true }
-  | { ok: false; error: "invalid-input" | "email-taken" | "invalid-credentials" | "unavailable" };
+export type CurrentUser = {
+  id: string;
+  email: string;
+  name: string;
+  nativeLanguage: "uk" | "ru";
+  role: "admin" | "user";
+};
 
 function privateNoStore(): void {
   try {
@@ -36,52 +35,16 @@ export const getCurrentUser = createServerFn({ method: "GET" }).handler(
   },
 );
 
-export const signUp = createServerFn({ method: "POST" })
-  .validator((input: { email: string; password: string; nativeLanguage: "uk" | "ru" }) => {
-    return {
-      email: typeof input?.email === "string" ? input.email : "",
-      password: typeof input?.password === "string" ? input.password : "",
-      nativeLanguage: assertNativeLanguage(input?.nativeLanguage),
-    };
-  })
-  .handler(async ({ data }): Promise<AuthResult> => {
-    privateNoStore();
-    const email = normalizeEmail(data.email);
-    if (email === null || !passwordAcceptable(data.password)) {
-      return { ok: false, error: "invalid-input" };
-    }
+export const googleSignInReady = createServerFn({ method: "GET" }).handler(
+  async (): Promise<boolean> => {
     try {
-      const { createAccount } = await import("#/auth/session.server");
-      return await createAccount({
-        email,
-        password: data.password,
-        nativeLanguage: data.nativeLanguage,
-      });
+      const { googleAuthConfigured } = await import("#/auth/auth.server");
+      return googleAuthConfigured();
     } catch {
-      return { ok: false, error: "unavailable" };
+      return false;
     }
-  });
-
-export const signIn = createServerFn({ method: "POST" })
-  .validator((input: { email: string; password: string }) => {
-    return {
-      email: typeof input?.email === "string" ? input.email : "",
-      password: typeof input?.password === "string" ? input.password : "",
-    };
-  })
-  .handler(async ({ data }): Promise<AuthResult> => {
-    privateNoStore();
-    const email = normalizeEmail(data.email);
-    if (email === null || !passwordAcceptable(data.password)) {
-      return { ok: false, error: "invalid-input" };
-    }
-    try {
-      const { authenticate } = await import("#/auth/session.server");
-      return await authenticate(email, data.password);
-    } catch {
-      return { ok: false, error: "unavailable" };
-    }
-  });
+  },
+);
 
 export const signOut = createServerFn({ method: "POST" }).handler(
   async (): Promise<{ ok: true }> => {
@@ -90,7 +53,7 @@ export const signOut = createServerFn({ method: "POST" }).handler(
       const { signOutCurrent } = await import("#/auth/session.server");
       await signOutCurrent();
     } catch {
-      // The cookie clear lives in the server module. Sign-out still reports success.
+      // Sign-out still reports success when the session is already gone.
     }
     return { ok: true };
   },

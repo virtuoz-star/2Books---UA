@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/books")({
       GET: async () => {
         try {
           const { listCatalogSummaries } = await import("#/library/books.server");
-          return Response.json(listCatalogSummaries(), { headers: corsHeaders });
+          return Response.json(await listCatalogSummaries(), { headers: corsHeaders });
         } catch {
           return Response.json({ error: "unavailable" }, { status: 500, headers: corsHeaders });
         }

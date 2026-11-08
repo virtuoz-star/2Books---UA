@@ -33,6 +33,7 @@ export type ReaderSentence = {
   en: string;
   uk: string;
   ru: string;
+  paragraph?: number;
 };
 
 export type ReaderChapter = {
@@ -90,8 +91,48 @@ function nativeLine(
   locale: Locale,
 ): string {
   const text = sentence[nativeLanguage];
-  if (text === "") return message(locale, "noTranslation");
-  return text;
+  if (text !== "") return text;
+  const other = nativeLanguage === "uk" ? sentence.ru : sentence.uk;
+  if (other !== "") return other;
+  return message(locale, "noTranslation");
+}
+
+function paragraphNumber(sentence: ReaderSentence): number {
+  if (
+    typeof sentence.paragraph !== "number" ||
+    !Number.isInteger(sentence.paragraph) ||
+    sentence.paragraph < 0
+  ) {
+    return 0;
+  }
+  return sentence.paragraph;
+}
+
+function paragraphGroups(sentences: readonly ReaderSentence[]): {
+  key: string;
+  sentences: { sentence: ReaderSentence; index: number }[];
+}[] {
+  const groups: {
+    key: string;
+    paragraph: number;
+    sentences: { sentence: ReaderSentence; index: number }[];
+  }[] = [];
+  for (let index = 0; index < sentences.length; index += 1) {
+    const sentence = sentences[index];
+    if (!sentence) continue;
+    const paragraph = paragraphNumber(sentence);
+    const last = groups[groups.length - 1];
+    if (!last || last.paragraph !== paragraph) {
+      groups.push({
+        key: `${paragraph}:${sentence.id}`,
+        paragraph,
+        sentences: [{ sentence, index }],
+      });
+    } else {
+      last.sentences.push({ sentence, index });
+    }
+  }
+  return groups;
 }
 
 // createElement keeps each sentence string exact. JSX line breaks would insert text nodes.
@@ -354,43 +395,59 @@ function ChapterReading({
       ) : null}
 
       <article className="flex flex-col gap-6">
-        <p className="text-lg leading-relaxed text-foreground">
-          {sentences.map((sentence, index) =>
-            createElement(
-              Fragment,
-              { key: sentence.id },
-              index > 0 ? " " : null,
-              sentenceControl(sentence, index, locale, selection, chooseSentence, chooseWord),
-            ),
-          )}
-        </p>
-
-        {selected ? (
-          <section
-            role="region"
-            aria-live="polite"
-            aria-atomic="true"
-            aria-label={translation}
-            className="flex flex-col items-start gap-3 rounded-lg border border-border bg-muted p-4"
-          >
-            <p className="text-sm font-medium text-muted-foreground">
-              {message(locale, "translation")}
-            </p>
-            <p className="text-lg leading-relaxed text-foreground">{translation}</p>
-            {selectedWord?.kind === "word" ? (
-              <p className="text-base leading-relaxed text-foreground">
-                <span className="font-medium text-muted-foreground">
-                  {message(locale, "dictionary")}
-                </span>{" "}
-                <span className="font-medium">{selectedWord.text}</span>{" "}
-                <span>{gloss === null ? message(locale, "noDictionaryEntry") : gloss}</span>
+        {paragraphGroups(sentences).map((group) => {
+          const openHere = selected
+            ? group.sentences.some((item) => item.sentence.id === selected.id)
+            : false;
+          return (
+            <div key={group.key} className="flex flex-col gap-6">
+              <p className="text-lg leading-relaxed text-foreground">
+                {group.sentences.map((item, index) =>
+                  createElement(
+                    Fragment,
+                    { key: item.sentence.id },
+                    index > 0 ? " " : null,
+                    sentenceControl(
+                      item.sentence,
+                      item.index,
+                      locale,
+                      selection,
+                      chooseSentence,
+                      chooseWord,
+                    ),
+                  ),
+                )}
               </p>
-            ) : null}
-            <button type="button" onClick={dismiss} className={dismissClass}>
-              {message(locale, "dismiss")}
-            </button>
-          </section>
-        ) : (
+              {openHere ? (
+                <section
+                  role="region"
+                  aria-live="polite"
+                  aria-atomic="true"
+                  aria-label={translation}
+                  className="flex flex-col items-start gap-3 rounded-lg border border-border bg-muted p-4"
+                >
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {message(locale, "translation")}
+                  </p>
+                  <p className="text-lg leading-relaxed text-foreground">{translation}</p>
+                  {selectedWord?.kind === "word" ? (
+                    <p className="text-base leading-relaxed text-foreground">
+                      <span className="font-medium text-muted-foreground">
+                        {message(locale, "dictionary")}
+                      </span>{" "}
+                      <span className="font-medium">{selectedWord.text}</span>{" "}
+                      <span>{gloss === null ? message(locale, "noDictionaryEntry") : gloss}</span>
+                    </p>
+                  ) : null}
+                  <button type="button" onClick={dismiss} className={dismissClass}>
+                    {message(locale, "dismiss")}
+                  </button>
+                </section>
+              ) : null}
+            </div>
+          );
+        })}
+        {selected ? null : (
           <p className="text-base text-muted-foreground">{message(locale, "hint")}</p>
         )}
       </article>

@@ -39,6 +39,7 @@ function CatalogPage() {
   const locale = settings.interfaceLocale;
   const progress = home?.progress ?? null;
   const myBooks = home?.user ? home.myBooks : null;
+  const summaries = home?.catalog ?? catalogBooks.map((book) => bookSummary(book));
 
   return (
     <main lang={locale} className="flex flex-col gap-10">
@@ -47,8 +48,7 @@ function CatalogPage() {
           {message(locale, "catalogHeading")}
         </h1>
         <ul className="m-0 flex list-none flex-col gap-4 p-0">
-          {catalogBooks.map((book) => {
-            const summary = bookSummary(book);
+          {summaries.map((summary) => {
             const chapterId = chapterFor(summary.id, progress);
             const continuing = progress !== null && progress.bookId === summary.id;
             return (
