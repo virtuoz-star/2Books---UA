@@ -1,26 +1,65 @@
-import { useSyncExternalStore } from "react";
+import { getRouteApi } from "@tanstack/react-router";
+import { useRef, useSyncExternalStore } from "react";
 
 import type { ReaderSettings } from "#/preferences/settings";
-import { readSettings, SETTINGS_STORAGE_KEY, writeSettings } from "#/preferences/settings";
+import {
+  fallbackReaderSettings,
+  readSettings,
+  SETTINGS_STORAGE_KEY,
+  settingsCookieAssignment,
+  settingsPayload,
+  writeSettings,
+} from "#/preferences/settings";
 
+const rootRoute = getRouteApi("__root__");
 const settingsEventName = "2books-settings";
 
-// Stable reference: a new object from getServerSnapshot loops useSyncExternalStore.
-const serverSettings: ReaderSettings = Object.freeze({
-  interfaceLocale: "uk",
-  nativeLanguage: "uk",
-});
-
+let memorySettings: ReaderSettings | null = null;
 let cachedKey: string | null = null;
-let cachedSettings: ReaderSettings = serverSettings;
+let cachedSettings: ReaderSettings = fallbackReaderSettings;
+
+function sameSettings(left: ReaderSettings, right: ReaderSettings): boolean {
+  return (
+    left.interfaceLocale === right.interfaceLocale &&
+    left.nativeLanguage === right.nativeLanguage &&
+    left.readingFont === right.readingFont &&
+    left.readingSize === right.readingSize &&
+    left.readingPaper === right.readingPaper &&
+    left.translationMode === right.translationMode &&
+    left.hintSeen === right.hintSeen
+  );
+}
 
 function languageListKey(languages: readonly string[]): string {
   return Array.from(languages).join("\u0000");
 }
 
+function applyDocumentSettings(settings: ReaderSettings): void {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  root.lang = settings.interfaceLocale;
+  root.dataset.font = settings.readingFont;
+  root.dataset.size = settings.readingSize;
+  root.dataset.paper = settings.readingPaper;
+}
+
+function writeSettingsCookie(settings: ReaderSettings): void {
+  if (typeof document === "undefined") return;
+  try {
+    document.cookie = settingsCookieAssignment(settings);
+  } catch {
+    // A blocked cookie must not undo the in-memory choice.
+  }
+}
+
+export function currentReaderSettings(): ReaderSettings {
+  if (typeof window === "undefined") return fallbackReaderSettings;
+  return getSnapshot();
+}
+
 function getSnapshot(): ReaderSettings {
-  // Hydration uses getServerSnapshot. Never read the browser from the server.
-  if (typeof window === "undefined") return serverSettings;
+  if (memorySettings !== null) return memorySettings;
+  if (typeof window === "undefined") return fallbackReaderSettings;
 
   let storage: Storage | null = null;
   let raw: string | null = null;
@@ -45,28 +84,18 @@ function getSnapshot(): ReaderSettings {
   } catch {
     return cachedSettings;
   }
-  // Same stored string and language list must keep the same object, or React loops.
   if (key === cachedKey) return cachedSettings;
 
-  let next = serverSettings;
+  let next = fallbackReaderSettings;
   try {
     next = readSettings(storage, languages);
-    if (
-      next.interfaceLocale === serverSettings.interfaceLocale &&
-      next.nativeLanguage === serverSettings.nativeLanguage
-    ) {
-      next = serverSettings;
-    }
+    if (sameSettings(next, fallbackReaderSettings)) next = fallbackReaderSettings;
   } catch {
-    next = serverSettings;
+    next = fallbackReaderSettings;
   }
   cachedKey = key;
   cachedSettings = next;
   return cachedSettings;
-}
-
-function getServerSnapshot(): ReaderSettings {
-  return serverSettings;
 }
 
 function subscribe(onStoreChange: () => void): () => void {
@@ -83,11 +112,18 @@ function subscribe(onStoreChange: () => void): () => void {
 }
 
 export function updateSettings(next: ReaderSettings): void {
+  const payload = JSON.stringify(settingsPayload(next));
+  let persisted = false;
   try {
     writeSettings(localStorage, next);
+    persisted = localStorage.getItem(SETTINGS_STORAGE_KEY) === payload;
   } catch {
-    // localStorage can throw. Rendering must continue.
+    persisted = false;
   }
+  writeSettingsCookie(next);
+  memorySettings = persisted ? null : next;
+  if (persisted) cachedKey = null;
+  applyDocumentSettings(memorySettings ?? next);
   try {
     window.dispatchEvent(new Event(settingsEventName));
   } catch {
@@ -99,6 +135,9 @@ export function useReaderSettings(): {
   settings: ReaderSettings;
   updateSettings: (next: ReaderSettings) => void;
 } {
-  const settings = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const { settings: serverSettings } = rootRoute.useRouteContext();
+  const frozen = useRef(serverSettings);
+  if (!sameSettings(frozen.current, serverSettings)) frozen.current = serverSettings;
+  const settings = useSyncExternalStore(subscribe, getSnapshot, () => frozen.current);
   return { settings, updateSettings };
 }

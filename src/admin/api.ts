@@ -38,19 +38,27 @@ function assertNativeLanguage(value: unknown): "uk" | "ru" {
   return value;
 }
 
-export const loadAdminDashboard = createServerFn({ method: "GET" }).handler(
-  async (): Promise<AdminDashboard | null> => {
+export const loadAdminDashboard = createServerFn({ method: "GET" })
+  .validator((input: { userQuery?: string; userCursor?: string; uploadCursor?: string } | undefined) => {
+    const clip = (value: unknown, max: number) =>
+      typeof value === "string" ? value.trim().slice(0, max) : "";
+    return {
+      userQuery: clip(input?.userQuery, 80),
+      userCursor: clip(input?.userCursor, 240),
+      uploadCursor: clip(input?.uploadCursor, 240),
+    };
+  })
+  .handler(async ({ data }): Promise<AdminDashboard | null> => {
     privateNoStore();
     try {
       const { loadDashboard } = await import("#/admin/dashboard.server");
-      const result = await loadDashboard();
+      const result = await loadDashboard(data);
       if ("error" in result) return null;
       return result;
     } catch {
       return null;
     }
-  },
-);
+  });
 
 export const setAdminUserRole = createServerFn({ method: "POST" })
   .validator((input: { userId: string; role: "admin" | "user" }) => {

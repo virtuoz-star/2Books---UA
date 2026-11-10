@@ -34,3 +34,40 @@ test("collapses whitespace and drops empty pieces", () => {
     "That was all.",
   ]);
 });
+
+test("keeps closing quotes and brackets with the sentence", () => {
+  expect(splitEnglishSentences(`"Stop!" he cried.`)).toEqual([`"Stop!" he cried.`]);
+  expect(splitEnglishSentences(`He said, "It is late." Then he left.`)).toEqual([
+    `He said, "It is late."`,
+    "Then he left.",
+  ]);
+  expect(splitEnglishSentences("(She paused.) Then she spoke.")).toEqual([
+    "(She paused.)",
+    "Then she spoke.",
+  ]);
+  expect(
+    splitEnglishSentences(`"Jim, darling," she cried, "don't look at me that way."`),
+  ).toEqual([`"Jim, darling," she cried, "don't look at me that way."`]);
+});
+
+test("does not split abbreviations, dotted forms, domains, or versions", () => {
+  expect(
+    splitEnglishSentences("Dr. Watson met St. John at 5 p.m. on Baker St. and left."),
+  ).toEqual(["Dr. Watson met St. John at 5 p.m. on Baker St. and left."]);
+  expect(splitEnglishSentences("See e.g. the note. See i.e. the rest.")).toEqual([
+    "See e.g. the note.",
+    "See i.e. the rest.",
+  ]);
+  expect(splitEnglishSentences("Visit example.com today. Version v2.0 shipped.")).toEqual([
+    "Visit example.com today.",
+    "Version v2.0 shipped.",
+  ]);
+});
+
+test("a blank line is a sentence boundary and keeps paragraph numbers", async () => {
+  const { splitEnglishParts } = await import("#/library/split");
+  expect(splitEnglishParts("One dollar.\n\nThat was all.")).toEqual([
+    { text: "One dollar.", paragraph: 0 },
+    { text: "That was all.", paragraph: 1 },
+  ]);
+});

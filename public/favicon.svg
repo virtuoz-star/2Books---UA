@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .sheet { fill: #e8f0eb; }
+    @media (prefers-color-scheme: dark) {
+      .sheet { fill: #152022; }
+    }
+  </style>
+  <rect class="sheet" width="32" height="32" rx="7" fill="#e8f0eb"/>
+  <g transform="rotate(-16 11 18)">
+    <rect x="4.2" y="8" width="13.2" height="17.6" rx="1.6" fill="#ffe08a"/>
+    <rect x="6.2" y="11.1" width="7.4" height="1.15" rx="0.4" fill="#17635d" opacity="0.55"/>
+    <rect x="6.2" y="13.6" width="5.2" height="1" rx="0.4" fill="#17635d" opacity="0.4"/>
+  </g>
+  <rect x="13" y="6.8" width="14.2" height="18.2" rx="1.6" fill="#17635d"/>
+  <rect x="15.3" y="10" width="8.2" height="1.35" rx="0.4" fill="#ffe08a"/>
+  <rect x="15.3" y="12.8" width="6.1" height="1.15" rx="0.4" fill="#ffe08a" opacity="0.82"/>
+  <rect x="15.3" y="15.5" width="7.2" height="1.15" rx="0.4" fill="#ffe08a" opacity="0.62"/>
+</svg>

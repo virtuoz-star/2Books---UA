@@ -1,0 +1,4 @@
+ALTER TABLE saved_words ADD COLUMN book_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE saved_words ADD COLUMN chapter_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE saved_words ADD COLUMN sentence_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE saved_words ADD COLUMN book_source TEXT NOT NULL DEFAULT '';

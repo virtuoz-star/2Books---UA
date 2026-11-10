@@ -1,6 +1,40 @@
 import { expect, test } from "vite-plus/test";
 
-import { parseTwoBooks } from "#/library/two-books";
+import { parseTwoBooks, parseTwoBooksArchive } from "#/library/two-books";
+
+async function inflateWeb(bytes: Uint8Array, format: "deflate-raw" | "gzip"): Promise<Uint8Array> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  const stream = new Blob([copy]).stream().pipeThrough(new DecompressionStream(format));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function tinyArchive(metaValue: unknown): Promise<Uint8Array> {
+  const page = {
+    version: 2,
+    tokens1: [["Gate", "", ".", 0, null]],
+    tokens2: [["Брама", "", "."]],
+    sentences: [0],
+    footnotes1: [],
+    footnotes2: [],
+  };
+  return buildArchive(
+    [
+      { name: "meta.json", data: new TextEncoder().encode(JSON.stringify(metaValue)) },
+      {
+        name: "toc.json",
+        data: new TextEncoder().encode(
+          JSON.stringify({
+            chapters: [{ title: "Gate", page: 0 }],
+            pages: [{ path: "pages/0.json.gz", length: 1 }],
+          }),
+        ),
+      },
+      { name: "pages/0.json.gz", data: await gzipJson(page) },
+    ],
+    { method: 8 },
+  );
+}
 
 function concat(parts: Uint8Array[]): Uint8Array {
   const size = parts.reduce((sum, part) => sum + part.length, 0);
@@ -287,4 +321,325 @@ test("rejects a reserved id and a file that is not an archive", async () => {
     ok: false,
     error: "invalid-input",
   });
+});
+
+test("returns invalid-input when inflate throws", async () => {
+  const bytes = await tinyArchive(meta("RU", "red-boat"));
+  expect(
+    await parseTwoBooksArchive(bytes, () => {
+      throw new Error("inflate failed");
+    }),
+  ).toEqual({ ok: false, error: "invalid-input" });
+});
+
+test("rejects an empty author unless the local import opts in", async () => {
+  const emptyAuthor = {
+    slug: "red-boat",
+    main: { lang: "EN", mlLang: "en", title: "Red Boat", author: "", description: "" },
+    secondary: { lang: "RU", mlLang: "ru", title: "Красная лодка", author: " ", description: "" },
+  };
+  const bytes = await tinyArchive(emptyAuthor);
+  expect(await parseTwoBooks(bytes)).toEqual({ ok: false, error: "invalid-input" });
+  expect(await parseTwoBooksArchive(bytes, inflateWeb)).toEqual({
+    ok: false,
+    error: "invalid-input",
+  });
+  const allowed = await parseTwoBooksArchive(bytes, inflateWeb, { allowEmptyAuthor: true });
+  expect(allowed.ok).toBe(true);
+  if (!allowed.ok) return;
+  expect(allowed.book.author).toBe("");
+  expect(allowed.book.title.en).toBe("Red Boat");
+
+  const emptyTitle = {
+    slug: "red-boat",
+    main: { lang: "EN", mlLang: "en", title: "", author: "A. Writer", description: "" },
+    secondary: {
+      lang: "RU",
+      mlLang: "ru",
+      title: "Красная лодка",
+      author: "А. Автор",
+      description: "",
+    },
+  };
+  expect(
+    await parseTwoBooksArchive(await tinyArchive(emptyTitle), inflateWeb, {
+      allowEmptyAuthor: true,
+    }),
+  ).toEqual({ ok: false, error: "invalid-input" });
+});
+
+test("opening quotes and dashes stay in front of the first word", async () => {
+  const page = {
+    version: 2,
+    tokens1: [
+      ["I", "“", " ", 0, null],
+      ["listened", "", " ", 1, null],
+      ["to", "", " ", 2, null],
+      ["the", "", " ", 3, null],
+      ["call", "", ".", 4, null],
+    ],
+    tokens2: [
+      ["Я", "—", " "],
+      ["прослушала", "", " "],
+      ["запись", "", "."],
+    ],
+    sentences: [0],
+    footnotes1: [],
+    footnotes2: [],
+  };
+  const bytes = await buildArchive(
+    [
+      {
+        name: "meta.json",
+        data: new TextEncoder().encode(JSON.stringify(meta("RU", "every-last-secret"))),
+      },
+      {
+        name: "toc.json",
+        data: new TextEncoder().encode(
+          JSON.stringify({
+            chapters: [{ title: "Call", page: 0 }],
+            pages: [{ path: "pages/0.json.gz", length: 1 }],
+          }),
+        ),
+      },
+      { name: "pages/0.json.gz", data: await gzipJson(page) },
+    ],
+    { method: 0 },
+  );
+  const parsed = await parseTwoBooks(bytes);
+  expect(parsed.ok).toBe(true);
+  if (!parsed.ok) return;
+  expect(parsed.book.chapters[0]?.sentences[0]?.en).toBe("“I listened to the call.");
+  expect(parsed.book.chapters[0]?.sentences[0]?.ru).toBe("—Я прослушала запись.");
+});
+
+test("pages before the first chapter marker are kept", async () => {
+  const page = (text: string) => ({
+    version: 2,
+    tokens1: [[text, "", ".", 0, null]],
+    tokens2: [[`${text} перевод`, "", "."]],
+    sentences: [0],
+    footnotes1: [],
+    footnotes2: [],
+  });
+  const bytes = await buildArchive(
+    [
+      {
+        name: "meta.json",
+        data: new TextEncoder().encode(JSON.stringify(meta("RU", "front-matter"))),
+      },
+      {
+        name: "toc.json",
+        data: new TextEncoder().encode(
+          JSON.stringify({
+            chapters: [
+              { title: "One", page: 2 },
+              { title: "Two", page: 3 },
+            ],
+            pages: [0, 1, 2, 3].map((index) => ({ path: `pages/${index}.json.gz`, length: 1 })),
+          }),
+        ),
+      },
+      { name: "pages/0.json.gz", data: await gzipJson(page("Preface text")) },
+      { name: "pages/1.json.gz", data: await gzipJson(page("Dedication")) },
+      { name: "pages/2.json.gz", data: await gzipJson(page("Chapter one text")) },
+      { name: "pages/3.json.gz", data: await gzipJson(page("Chapter two text")) },
+    ],
+    { method: 0 },
+  );
+  const parsed = await parseTwoBooks(bytes);
+  expect(parsed.ok).toBe(true);
+  if (!parsed.ok) return;
+  expect(parsed.book.chapters.map((chapter) => chapter.title.en)).toEqual([
+    "Red Boat",
+    "One",
+    "Two",
+  ]);
+  expect(parsed.book.chapters.flatMap((chapter) => chapter.sentences.map((sentence) => sentence.en))).toEqual([
+    "Preface text.",
+    "Dedication.",
+    "Chapter one text.",
+    "Chapter two text.",
+  ]);
+});
+
+test("a book with no chapter markers keeps every page", async () => {
+  const page = (text: string) => ({
+    version: 2,
+    tokens1: [[text, "", ".", 0, null]],
+    tokens2: [[text, "", "."]],
+    sentences: [0],
+    footnotes1: [],
+    footnotes2: [],
+  });
+  const bytes = await buildArchive(
+    [
+      {
+        name: "meta.json",
+        data: new TextEncoder().encode(JSON.stringify(meta("UK", "no-markers"))),
+      },
+      {
+        name: "toc.json",
+        data: new TextEncoder().encode(
+          JSON.stringify({
+            chapters: [],
+            pages: [
+              { path: "pages/0.json.gz", length: 1 },
+              { path: "pages/1.json.gz", length: 1 },
+            ],
+          }),
+        ),
+      },
+      { name: "pages/0.json.gz", data: await gzipJson(page("Preface text")) },
+      { name: "pages/1.json.gz", data: await gzipJson(page("Dedication")) },
+    ],
+    { method: 0 },
+  );
+  const parsed = await parseTwoBooks(bytes);
+  expect(parsed.ok).toBe(true);
+  if (!parsed.ok) return;
+  expect(parsed.book.chapters).toHaveLength(1);
+  expect(parsed.book.chapters[0]?.title.en).toBe("Red Boat");
+  expect(parsed.book.chapters[0]?.sentences.map((sentence) => sentence.en)).toEqual([
+    "Preface text.",
+    "Dedication.",
+  ]);
+});
+
+test("an English sentence without a translation is kept", async () => {
+  const page = {
+    version: 2,
+    tokens1: [
+      ["Hello", "", ".", 0, null],
+      ["Alone", "", ".", 1, null],
+    ],
+    tokens2: [["Привет", "", "."]],
+    sentences: [0, 1],
+    footnotes1: [],
+    footnotes2: [],
+  };
+  const bytes = await buildArchive(
+    [
+      {
+        name: "meta.json",
+        data: new TextEncoder().encode(JSON.stringify(meta("RU", "unaligned"))),
+      },
+      {
+        name: "toc.json",
+        data: new TextEncoder().encode(
+          JSON.stringify({
+            chapters: [{ title: "One", page: 0 }],
+            pages: [{ path: "pages/0.json.gz", length: 1 }],
+          }),
+        ),
+      },
+      { name: "pages/0.json.gz", data: await gzipJson(page) },
+    ],
+    { method: 0 },
+  );
+  const parsed = await parseTwoBooks(bytes);
+  expect(parsed.ok).toBe(true);
+  if (!parsed.ok) return;
+  expect(parsed.book.chapters[0]?.sentences).toEqual([
+    { id: "s1", en: "Hello.", uk: "", ru: "Привет.", paragraph: 0 },
+    { id: "s2", en: "Alone.", uk: "", ru: "", paragraph: 0 },
+  ]);
+});
+
+test("a page with too many sentences is rejected before alignment", async () => {
+  const count = 5_001;
+  const page = {
+    version: 2,
+    tokens1: Array.from({ length: count }, (_, index) => ["A", "", ".", index, null]),
+    tokens2: [["Б", "", "."]],
+    sentences: Array.from({ length: count }, (_, index) => index),
+    footnotes1: [],
+    footnotes2: [],
+  };
+  const bytes = await buildArchive(
+    [
+      {
+        name: "meta.json",
+        data: new TextEncoder().encode(JSON.stringify(meta("RU", "too-many-sentences"))),
+      },
+      {
+        name: "toc.json",
+        data: new TextEncoder().encode(
+          JSON.stringify({
+            chapters: [{ title: "One", page: 0 }],
+            pages: [{ path: "pages/0.json.gz", length: 1 }],
+          }),
+        ),
+      },
+      { name: "pages/0.json.gz", data: await gzipJson(page) },
+    ],
+    { method: 0 },
+  );
+  expect(await parseTwoBooks(bytes)).toEqual({ ok: false, error: "invalid-input" });
+});
+
+test("inflate stops once a page expands past the entry cap", async () => {
+  const page = {
+    version: 2,
+    tokens1: [["A".repeat(8_000_001), "", ".", 0, null]],
+    tokens2: [["Б", "", "."]],
+    sentences: [0],
+    footnotes1: [],
+    footnotes2: [],
+  };
+  const bytes = await buildArchive(
+    [
+      {
+        name: "meta.json",
+        data: new TextEncoder().encode(JSON.stringify(meta("RU", "huge-page"))),
+      },
+      {
+        name: "toc.json",
+        data: new TextEncoder().encode(
+          JSON.stringify({
+            chapters: [{ title: "One", page: 0 }],
+            pages: [{ path: "pages/0.json.gz", length: 1 }],
+          }),
+        ),
+      },
+      { name: "pages/0.json.gz", data: await gzipJson(page) },
+    ],
+    { method: 0 },
+  );
+  expect(await parseTwoBooks(bytes)).toEqual({ ok: false, error: "invalid-input" });
+});
+
+test("pages the toc does not reference are not inflated", async () => {
+  const page = {
+    version: 2,
+    tokens1: [["Gate", "", ".", 0, null]],
+    tokens2: [["Брама", "", "."]],
+    sentences: [0],
+    footnotes1: [],
+    footnotes2: [],
+  };
+  const bytes = await buildArchive(
+    [
+      {
+        name: "meta.json",
+        data: new TextEncoder().encode(JSON.stringify(meta("UK", "referenced-only"))),
+      },
+      {
+        name: "toc.json",
+        data: new TextEncoder().encode(
+          JSON.stringify({
+            chapters: [{ title: "Gate", page: 0 }],
+            pages: [{ path: "pages/0.json.gz", length: 1 }],
+          }),
+        ),
+      },
+      { name: "pages/0.json.gz", data: await gzipJson(page) },
+      { name: "pages/1.json.gz", data: Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8]) },
+    ],
+    { method: 0 },
+  );
+  const parsed = await parseTwoBooks(bytes);
+  expect(parsed.ok).toBe(true);
+  if (!parsed.ok) return;
+  expect(parsed.book.chapters[0]?.sentences[0]?.en).toBe("Gate.");
 });

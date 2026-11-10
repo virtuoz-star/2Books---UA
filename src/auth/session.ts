@@ -25,15 +25,41 @@ function assertNativeLanguage(value: unknown): "uk" | "ru" {
 
 export const getCurrentUser = createServerFn({ method: "GET" }).handler(
   async (): Promise<CurrentUser | null> => {
-    try {
-      privateNoStore();
-      const { readCurrentUser } = await import("#/auth/session.server");
-      return await readCurrentUser();
-    } catch {
-      return null;
-    }
+    privateNoStore();
+    const { readCurrentUser } = await import("#/auth/session.server");
+    return await readCurrentUser();
   },
 );
+
+const sessionTtlMs = 20_000;
+let sessionCache: { at: number; promise: Promise<CurrentUser | null> } | null = null;
+let lastKnownUser: CurrentUser | null = null;
+
+export function resetSessionCache(): void {
+  sessionCache = null;
+  lastKnownUser = null;
+}
+
+/** Client-only session memo. The server always reads the request; a shared module cache would leak across users. */
+export function getCachedCurrentUser(): Promise<CurrentUser | null> {
+  if (typeof window === "undefined") return getCurrentUser();
+  const now = Date.now();
+  if (sessionCache !== null && now - sessionCache.at < sessionTtlMs) return sessionCache.promise;
+  const promise = Promise.resolve()
+    .then(() => getCurrentUser())
+    .then(
+      (user) => {
+        lastKnownUser = user;
+        return user;
+      },
+      () => {
+        if (sessionCache?.promise === promise) sessionCache = null;
+        return lastKnownUser;
+      },
+    );
+  sessionCache = { at: now, promise };
+  return promise;
+}
 
 export const googleSignInReady = createServerFn({ method: "GET" }).handler(
   async (): Promise<boolean> => {

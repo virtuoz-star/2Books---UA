@@ -14,11 +14,15 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as UploadRouteImport } from './routes/upload'
+import { Route as WordsRouteImport } from './routes/words'
 import { Route as ApiBooksRouteImport } from './routes/api/books'
+import { Route as ApiWordsRouteImport } from './routes/api/words'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiBooksBookIdRouteImport } from './routes/api/books/$bookId'
+import { Route as ApiSessionReadyRouteImport } from './routes/api/session/ready'
 import { Route as BooksBookIdIndexRouteImport } from './routes/books/$bookId/index'
 import { Route as BooksBookIdChapterIdRouteImport } from './routes/books/$bookId/$chapterId'
+import { Route as ApiBooksBookIdDownloadRouteImport } from './routes/api/books/$bookId.download'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -45,9 +49,19 @@ const UploadRoute = UploadRouteImport.update({
   path: '/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WordsRoute = WordsRouteImport.update({
+  id: '/words',
+  path: '/words',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiBooksRoute = ApiBooksRouteImport.update({
   id: '/api/books',
   path: '/api/books',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWordsRoute = ApiWordsRouteImport.update({
+  id: '/api/words',
+  path: '/api/words',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -60,6 +74,11 @@ const ApiBooksBookIdRoute = ApiBooksBookIdRouteImport.update({
   path: '/$bookId',
   getParentRoute: () => ApiBooksRoute,
 } as any)
+const ApiSessionReadyRoute = ApiSessionReadyRouteImport.update({
+  id: '/api/session/ready',
+  path: '/api/session/ready',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BooksBookIdIndexRoute = BooksBookIdIndexRouteImport.update({
   id: '/books/$bookId/',
   path: '/books/$bookId/',
@@ -70,6 +89,11 @@ const BooksBookIdChapterIdRoute = BooksBookIdChapterIdRouteImport.update({
   path: '/books/$bookId/$chapterId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiBooksBookIdDownloadRoute = ApiBooksBookIdDownloadRouteImport.update({
+  id: '/download',
+  path: '/download',
+  getParentRoute: () => ApiBooksBookIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -77,11 +101,15 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/upload': typeof UploadRoute
+  '/words': typeof WordsRoute
   '/api/books': typeof ApiBooksRouteWithChildren
+  '/api/words': typeof ApiWordsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/books/$bookId': typeof ApiBooksBookIdRoute
+  '/api/books/$bookId': typeof ApiBooksBookIdRouteWithChildren
+  '/api/session/ready': typeof ApiSessionReadyRoute
   '/books/$bookId/$chapterId': typeof BooksBookIdChapterIdRoute
   '/books/$bookId/': typeof BooksBookIdIndexRoute
+  '/api/books/$bookId/download': typeof ApiBooksBookIdDownloadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -89,11 +117,15 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/upload': typeof UploadRoute
+  '/words': typeof WordsRoute
   '/api/books': typeof ApiBooksRouteWithChildren
+  '/api/words': typeof ApiWordsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/books/$bookId': typeof ApiBooksBookIdRoute
+  '/api/books/$bookId': typeof ApiBooksBookIdRouteWithChildren
+  '/api/session/ready': typeof ApiSessionReadyRoute
   '/books/$bookId/$chapterId': typeof BooksBookIdChapterIdRoute
   '/books/$bookId': typeof BooksBookIdIndexRoute
+  '/api/books/$bookId/download': typeof ApiBooksBookIdDownloadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -102,11 +134,15 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/upload': typeof UploadRoute
+  '/words': typeof WordsRoute
   '/api/books': typeof ApiBooksRouteWithChildren
+  '/api/words': typeof ApiWordsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/books/$bookId': typeof ApiBooksBookIdRoute
+  '/api/books/$bookId': typeof ApiBooksBookIdRouteWithChildren
+  '/api/session/ready': typeof ApiSessionReadyRoute
   '/books/$bookId/$chapterId': typeof BooksBookIdChapterIdRoute
   '/books/$bookId/': typeof BooksBookIdIndexRoute
+  '/api/books/$bookId/download': typeof ApiBooksBookIdDownloadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -116,11 +152,15 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/upload'
+    | '/words'
     | '/api/books'
+    | '/api/words'
     | '/api/auth/$'
     | '/api/books/$bookId'
+    | '/api/session/ready'
     | '/books/$bookId/$chapterId'
     | '/books/$bookId/'
+    | '/api/books/$bookId/download'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -128,11 +168,15 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/upload'
+    | '/words'
     | '/api/books'
+    | '/api/words'
     | '/api/auth/$'
     | '/api/books/$bookId'
+    | '/api/session/ready'
     | '/books/$bookId/$chapterId'
     | '/books/$bookId'
+    | '/api/books/$bookId/download'
   id:
     | '__root__'
     | '/'
@@ -140,11 +184,15 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/upload'
+    | '/words'
     | '/api/books'
+    | '/api/words'
     | '/api/auth/$'
     | '/api/books/$bookId'
+    | '/api/session/ready'
     | '/books/$bookId/$chapterId'
     | '/books/$bookId/'
+    | '/api/books/$bookId/download'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -153,8 +201,11 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   UploadRoute: typeof UploadRoute
+  WordsRoute: typeof WordsRoute
   ApiBooksRoute: typeof ApiBooksRouteWithChildren
+  ApiWordsRoute: typeof ApiWordsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiSessionReadyRoute: typeof ApiSessionReadyRoute
   BooksBookIdChapterIdRoute: typeof BooksBookIdChapterIdRoute
   BooksBookIdIndexRoute: typeof BooksBookIdIndexRoute
 }
@@ -196,11 +247,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UploadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/words': {
+      id: '/words'
+      path: '/words'
+      fullPath: '/words'
+      preLoaderRoute: typeof WordsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/books': {
       id: '/api/books'
       path: '/api/books'
       fullPath: '/api/books'
       preLoaderRoute: typeof ApiBooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/words': {
+      id: '/api/words'
+      path: '/api/words'
+      fullPath: '/api/words'
+      preLoaderRoute: typeof ApiWordsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -217,6 +282,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBooksBookIdRouteImport
       parentRoute: typeof ApiBooksRoute
     }
+    '/api/session/ready': {
+      id: '/api/session/ready'
+      path: '/api/session/ready'
+      fullPath: '/api/session/ready'
+      preLoaderRoute: typeof ApiSessionReadyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/books/$bookId/': {
       id: '/books/$bookId/'
       path: '/books/$bookId'
@@ -231,15 +303,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BooksBookIdChapterIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/books/$bookId/download': {
+      id: '/api/books/$bookId/download'
+      path: '/download'
+      fullPath: '/api/books/$bookId/download'
+      preLoaderRoute: typeof ApiBooksBookIdDownloadRouteImport
+      parentRoute: typeof ApiBooksBookIdRoute
+    }
   }
 }
 
+interface ApiBooksBookIdRouteChildren {
+  ApiBooksBookIdDownloadRoute: typeof ApiBooksBookIdDownloadRoute
+}
+
+const ApiBooksBookIdRouteChildren: ApiBooksBookIdRouteChildren = {
+  ApiBooksBookIdDownloadRoute: ApiBooksBookIdDownloadRoute,
+}
+
+const ApiBooksBookIdRouteWithChildren = ApiBooksBookIdRoute._addFileChildren(
+  ApiBooksBookIdRouteChildren,
+)
+
 interface ApiBooksRouteChildren {
-  ApiBooksBookIdRoute: typeof ApiBooksBookIdRoute
+  ApiBooksBookIdRoute: typeof ApiBooksBookIdRouteWithChildren
 }
 
 const ApiBooksRouteChildren: ApiBooksRouteChildren = {
-  ApiBooksBookIdRoute: ApiBooksBookIdRoute,
+  ApiBooksBookIdRoute: ApiBooksBookIdRouteWithChildren,
 }
 
 const ApiBooksRouteWithChildren = ApiBooksRoute._addFileChildren(
@@ -252,8 +343,11 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   UploadRoute: UploadRoute,
+  WordsRoute: WordsRoute,
   ApiBooksRoute: ApiBooksRouteWithChildren,
+  ApiWordsRoute: ApiWordsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiSessionReadyRoute: ApiSessionReadyRoute,
   BooksBookIdChapterIdRoute: BooksBookIdChapterIdRoute,
   BooksBookIdIndexRoute: BooksBookIdIndexRoute,
 }

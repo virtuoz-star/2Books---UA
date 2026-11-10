@@ -1,18 +1,33 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-};
+import { catalogResponse } from "#/library/http-cache";
 
 export const Route = createFileRoute("/api/books")({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async ({ request }) => {
         try {
           const { listCatalogSummaries } = await import("#/library/books.server");
-          return Response.json(await listCatalogSummaries(), { headers: corsHeaders });
+          const listed = await listCatalogSummaries();
+          const etag = `W/"catalog-${listed.revision}"`;
+          if (listed.stale) {
+            return Response.json(listed.books, {
+              headers: {
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "no-store",
+                ETag: etag,
+              },
+            });
+          }
+          return catalogResponse(request, listed.books, etag);
         } catch {
-          return Response.json({ error: "unavailable" }, { status: 500, headers: corsHeaders });
+          return Response.json(
+            { error: "unavailable" },
+            {
+              status: 500,
+              headers: { "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" },
+            },
+          );
         }
       },
     },

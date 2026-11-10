@@ -18,6 +18,10 @@ const config = defineConfig(({ mode }) => ({
     options: { typeAware: true, typeCheck: true },
   },
   resolve: { tsconfigPaths: true },
+  // Phone helpers import bun:test and run with `bun test` in apps/mobile.
+  test: {
+    include: ["src/**/*.test.ts"],
+  },
   plugins: lazyPlugins(() =>
     [
       devtools(),

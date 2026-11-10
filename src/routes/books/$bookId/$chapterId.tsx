@@ -1,32 +1,50 @@
-import { createFileRoute, isNotFound, isRedirect, notFound } from "@tanstack/react-router";
+import { createFileRoute, notFound } from "@tanstack/react-router";
 
-import { loadLibraryHome, loadReaderBook } from "#/library/api";
-import { ReaderScreen, type ReaderProgress } from "#/reader/reader-screen";
+import { documentTitle, message } from "#/i18n/messages";
+import type { Locale } from "#/i18n/types";
+import { loadReaderChapter } from "#/library/api";
+import { ReaderScreen } from "#/reader/reader-screen";
+import { RoutePending } from "#/routes/-status-pages";
 import { useNativeLanguage } from "#/shell/app-header";
 
+function localized(value: string | Record<Locale, string>, locale: Locale): string {
+  if (typeof value === "string") return value;
+  return value[locale];
+}
+
 export const Route = createFileRoute("/books/$bookId/$chapterId")({
-  loader: async ({ params }) => {
-    const book = await loadReaderBook({ data: { bookId: params.bookId } });
-    if (book === null) throw notFound();
-    if (!book.chapters.some((chapter: { id: string }) => chapter.id === params.chapterId)) {
-      throw notFound();
-    }
-    let progress: ReaderProgress | null = null;
-    try {
-      const home = await loadLibraryHome();
-      progress = home.progress;
-    } catch (error) {
-      if (isRedirect(error) || isNotFound(error)) throw error;
-      progress = null;
-    }
-    return { book, progress };
+  staleTime: 5 * 60 * 1000,
+  validateSearch: (search: Record<string, unknown>): { sentence?: string } => {
+    const sentence = search.sentence;
+    if (typeof sentence !== "string") return {};
+    const trimmed = sentence.trim();
+    if (trimmed.length < 1 || trimmed.length > 80 || !/^[\w.-]+$/.test(trimmed)) return {};
+    return { sentence: trimmed };
   },
+  loader: async ({ params }) => {
+    const result = await loadReaderChapter({
+      data: { bookId: params.bookId, chapterId: params.chapterId },
+    });
+    if (result.status === "unavailable") throw new Error("chapter unavailable");
+    if (result.status !== "ok") throw notFound();
+    return result;
+  },
+  head: ({ loaderData, match }) => {
+    const locale = match.context.settings.interfaceLocale;
+    if (!loaderData) return { meta: [{ title: documentTitle(message(locale, "loading")) }] };
+    const bookTitle = localized(loaderData.book.title, locale);
+    const chapter = loaderData.book.chapters.find((item) => item.id === match.params.chapterId);
+    const part = chapter ? localized(chapter.title, locale) : bookTitle;
+    return { meta: [{ title: documentTitle(`${bookTitle} — ${part}`) }] };
+  },
+  pendingComponent: RoutePending,
   component: ChapterPage,
 });
 
 function ChapterPage() {
-  const { book, progress } = Route.useLoaderData();
+  const { book, progress, upload } = Route.useLoaderData();
   const { bookId, chapterId } = Route.useParams();
+  const { sentence } = Route.useSearch();
   const { user } = Route.useRouteContext();
   const nativeLanguage = useNativeLanguage();
   return (
@@ -34,9 +52,11 @@ function ChapterPage() {
       bookId={bookId}
       book={book}
       chapterId={chapterId}
-      progress={progress}
       nativeLanguage={nativeLanguage}
       signedIn={user !== null}
+      progress={progress}
+      linkedSentence={sentence ?? null}
+      upload={upload}
     />
   );
 }

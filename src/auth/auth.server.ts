@@ -1,7 +1,9 @@
 import { env } from "cloudflare:workers";
 import { betterAuth } from "better-auth";
+import { getOAuthState } from "better-auth/api";
 import { admin } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
+import { expo } from "@better-auth/expo";
 import { getRequest } from "@tanstack/react-start/server";
 
 import { isListedAdmin } from "#/auth/admins";
@@ -45,14 +47,22 @@ function createAuth(input: {
           before: async (user) => {
             const fields = user as { email?: string; nativeLanguage?: unknown; role?: string };
             const email = typeof fields.email === "string" ? fields.email : "";
-            const nativeLanguage = fields.nativeLanguage === "ru" ? "ru" : "uk";
+            const state = await getOAuthState();
+            const fromState =
+              state !== null && typeof state === "object" ? state.nativeLanguage : undefined;
+            const nativeLanguage =
+              fromState === "uk" || fromState === "ru"
+                ? fromState
+                : fields.nativeLanguage === "ru"
+                  ? "ru"
+                  : "uk";
             const role = isListedAdmin(email, env.ADMIN_EMAILS) ? "admin" : fields.role;
             return { data: { ...user, nativeLanguage, role } };
           },
         },
       },
     },
-    plugins: [admin(), tanstackStartCookies()],
+    plugins: [expo(), admin(), tanstackStartCookies()],
   });
 }
 
@@ -85,8 +95,16 @@ export function getAuth(request?: Request) {
   const key = `${baseURL}\n${secret}\n${clientId}\n${clientSecret}`;
   if (cached?.key === key) return cached.auth;
 
-  const origins = new Set<string>([baseURL]);
+  const origins = new Set<string>([baseURL, "twobooks://", "twobooks://*"]);
   if (request) origins.add(new URL(request.url).origin);
+  const hostname = new URL(baseURL).hostname;
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    origins.add("exp://");
+    origins.add("exp://**");
+    origins.add("exp://192.168.*.*:*/**");
+    origins.add("exp://10.*.*.*:*/**");
+    origins.add("exp://172.*.*.*:*/**");
+  }
 
   const auth = createAuth({
     baseURL,

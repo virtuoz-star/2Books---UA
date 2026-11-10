@@ -5,21 +5,109 @@
     "scheme": "twobooks",
     "version": "1.0.0",
     "orientation": "default",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "backgroundColor": "#e8f0eb",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#e8f0eb"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.twobooks.reader",
       "infoPlist": {
-        "NSAppTransportSecurity": {
-          "NSAllowsLocalNetworking": true
-        }
+        "NSAppTransportSecurity": {},
+        "UTExportedTypeDeclarations": [
+          {
+            "UTTypeIdentifier": "com.twobooks.book",
+            "UTTypeDescription": "2books book",
+            "UTTypeConformsTo": ["public.data", "public.archive"],
+            "UTTypeTagSpecification": {
+              "public.filename-extension": ["2books"],
+              "public.mime-type": ["application/vnd.twobooks.book"]
+            }
+          }
+        ],
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "2books book",
+            "CFBundleTypeRole": "Viewer",
+            "LSHandlerRank": "Owner",
+            "LSItemContentTypes": ["com.twobooks.book"]
+          }
+        ]
       }
     },
     "android": {
       "package": "com.twobooks.reader",
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": false,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#17635d"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": ["DEFAULT"],
+          "data": [
+            { "scheme": "content", "mimeType": "application/vnd.twobooks.book", "host": "*" }
+          ]
+        },
+        {
+          "action": "VIEW",
+          "category": ["DEFAULT"],
+          "data": [
+            { "scheme": "content", "mimeType": "*/*", "host": "*", "pathPattern": ".*\\.2books" },
+            {
+              "scheme": "content",
+              "mimeType": "*/*",
+              "host": "*",
+              "pathPattern": ".*\\..*\\.2books"
+            },
+            {
+              "scheme": "content",
+              "mimeType": "*/*",
+              "host": "*",
+              "pathPattern": ".*\\..*\\..*\\.2books"
+            },
+            {
+              "scheme": "content",
+              "mimeType": "*/*",
+              "host": "*",
+              "pathPattern": ".*\\..*\\..*\\..*\\.2books"
+            }
+          ]
+        }
+      ]
     },
-    "plugins": ["expo-router", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      ["expo-file-system", { "supportsOpeningDocumentsInPlace": true, "enableFileSharing": false }],
+      [
+        "expo-sharing",
+        {
+          "ios": { "enabled": true, "activationRule": { "supportsFileWithMaxCount": 1 } },
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "application/vnd.twobooks.book",
+              "application/zip",
+              "application/octet-stream"
+            ]
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#e8f0eb",
+          "image": "./assets/icon.png",
+          "imageWidth": 200
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     }

@@ -21,6 +21,8 @@ test("getCatalogBook returns the gift of the magi or null", () => {
       author: "O. Henry",
       title: book.title,
       chapterCount: 5,
+      sentenceCount: book.chapters.reduce((sum, chapter) => sum + chapter.sentences.length, 0),
+      languages: ["uk", "ru"],
     });
   }
 });

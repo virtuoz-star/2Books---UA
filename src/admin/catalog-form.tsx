@@ -1,16 +1,12 @@
 import { useState, type FormEvent } from "react";
 
 import { createAdminCatalogBook, type AdminFailure } from "#/admin/api";
+import { Button } from "#/components/ui/button";
+import { Field, Input, Textarea } from "#/components/ui/field";
+import { Notice } from "#/components/ui/notice";
 import { message } from "#/i18n/messages";
 import type { Locale } from "#/i18n/types";
 import { alignedSentenceLines, catalogLimits, prepareCatalogBook } from "#/library/catalog-draft";
-
-const fieldClass =
-  "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground";
-const buttonClass =
-  "cursor-pointer rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground disabled:cursor-default disabled:opacity-60";
-const primaryClass =
-  "cursor-pointer rounded-md border-0 bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-default disabled:opacity-60";
 
 type ChapterDraft = {
   title: { uk: string; ru: string; en: string };
@@ -130,41 +126,30 @@ export function CatalogForm({
         {message(locale, "addCatalogBook")}
       </h3>
       {errorMessage ? (
-        <p id="catalog-error" role="alert" className="text-sm text-foreground">
+        <Notice id="catalog-error" tone="danger">
           {errorMessage}
-        </p>
+        </Notice>
       ) : null}
-      <label
-        className="flex flex-col gap-1.5 text-sm font-medium text-foreground"
-        htmlFor="catalog-book-id"
+      <Field
+        id="catalog-book-id"
+        label={message(locale, "catalogAddress")}
+        hint={message(locale, "catalogAddressHint")}
       >
-        {message(locale, "catalogAddress")}
-        <input
-          id="catalog-book-id"
+        <Input
           value={id}
           maxLength={catalogLimits.maxIdLength}
           disabled={locked}
           onChange={(event) => setId(event.target.value)}
-          className={fieldClass}
         />
-        <span className="text-sm font-normal text-muted-foreground">
-          {message(locale, "catalogAddressHint")}
-        </span>
-      </label>
-      <label
-        className="flex flex-col gap-1.5 text-sm font-medium text-foreground"
-        htmlFor="catalog-author"
-      >
-        {message(locale, "authorLabel")}
-        <input
-          id="catalog-author"
+      </Field>
+      <Field id="catalog-author" label={message(locale, "authorLabel")}>
+        <Input
           value={author}
           maxLength={catalogLimits.maxTitleLength}
           disabled={locked}
           onChange={(event) => setAuthor(event.target.value)}
-          className={fieldClass}
         />
-      </label>
+      </Field>
       <fieldset className="flex flex-col gap-3">
         <legend className="text-sm font-medium text-foreground">
           {message(locale, "bookTitle")}
@@ -221,33 +206,33 @@ export function CatalogForm({
           </div>
           <div className="flex flex-wrap gap-2">
             {chapters.length > 1 ? (
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 disabled={locked}
                 onClick={() =>
                   setChapters((current) => current.filter((_, index) => index !== chapterIndex))
                 }
-                className={buttonClass}
               >
                 {message(locale, "removeChapter")}
-              </button>
+              </Button>
             ) : null}
           </div>
         </fieldset>
       ))}
       <div className="flex flex-wrap gap-2">
-        <button
+        <Button
           type="button"
           id="catalog-add-chapter"
+          variant="secondary"
           disabled={locked || chapters.length >= catalogLimits.maxChapters}
           onClick={() => setChapters((current) => [...current, emptyChapter()])}
-          className={buttonClass}
         >
           {message(locale, "addChapter")}
-        </button>
-        <button type="submit" id="catalog-publish" disabled={locked} className={primaryClass}>
+        </Button>
+        <Button type="submit" id="catalog-publish" disabled={locked} busy={pending}>
           {message(locale, "publishBook")}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -286,21 +271,14 @@ function TitleFields({
   return (
     <div className="grid gap-3 sm:grid-cols-3">
       {fields.map(([language, label]) => (
-        <label
-          key={language}
-          className="flex flex-col gap-1.5 text-sm font-medium text-foreground"
-          htmlFor={`${idPrefix}-${language}`}
-        >
-          {message(locale, label)}
-          <input
-            id={`${idPrefix}-${language}`}
+        <Field key={language} id={`${idPrefix}-${language}`} label={message(locale, label)}>
+          <Input
             value={title[language]}
             maxLength={catalogLimits.maxTitleLength}
             disabled={disabled}
             onChange={(event) => onChange(language, event.target.value)}
-            className={fieldClass}
           />
-        </label>
+        </Field>
       ))}
     </div>
   );
@@ -326,19 +304,22 @@ function ChapterText({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="flex flex-col gap-1.5 text-sm font-medium text-foreground" htmlFor={id}>
-      <span className="flex items-baseline justify-between gap-3">
-        {label}
-        <span className="font-normal text-muted-foreground">{lineCount(value)}</span>
-      </span>
-      <textarea
-        id={id}
+    <Field
+      id={id}
+      label={
+        <span className="flex items-baseline justify-between gap-3">
+          {label}
+          <span className="font-normal text-muted-foreground">{lineCount(value)}</span>
+        </span>
+      }
+    >
+      <Textarea
         value={value}
         rows={16}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
-        className={`${fieldClass} min-h-80 resize-y leading-relaxed`}
+        className="min-h-80 resize-y leading-relaxed"
       />
-    </label>
+    </Field>
   );
 }

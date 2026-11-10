@@ -28,6 +28,30 @@ test("the last administrator cannot be demoted, blocked, or deleted", () => {
   ).toBe(true);
 });
 
+test("a banned administrator can be demoted or deleted when they are the only other admin", () => {
+  expect(
+    adminActionAllowed({
+      actorId: "admin-1",
+      targetId: "admin-2",
+      targetRole: "admin",
+      targetBanned: true,
+      adminCount: 1,
+      action: "delete",
+    }),
+  ).toBe(true);
+  expect(
+    adminActionAllowed({
+      actorId: "admin-1",
+      targetId: "admin-2",
+      targetRole: "admin",
+      targetBanned: true,
+      adminCount: 1,
+      action: "set-role",
+      nextRole: "user",
+    }),
+  ).toBe(true);
+});
+
 test("an administrator can be removed when another administrator remains", () => {
   expect(
     adminActionAllowed({

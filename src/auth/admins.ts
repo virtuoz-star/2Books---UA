@@ -14,15 +14,18 @@ export function adminActionAllowed(input: {
   actorId: string;
   targetId: string;
   targetRole: "admin" | "user";
+  /** A banned administrator is not an active admin, so removing them is allowed. */
+  targetBanned?: boolean;
   adminCount: number;
   action: AdminAction;
   nextRole?: "admin" | "user";
 }): boolean {
   if (input.action === "delete" && input.actorId === input.targetId) return false;
   if (input.action === "ban" && input.actorId === input.targetId) return false;
+  const activeAdmin = input.targetRole === "admin" && input.targetBanned !== true;
   const removesAdmin =
-    ((input.action === "delete" || input.action === "ban") && input.targetRole === "admin") ||
-    (input.action === "set-role" && input.targetRole === "admin" && input.nextRole !== "admin");
+    ((input.action === "delete" || input.action === "ban") && activeAdmin) ||
+    (input.action === "set-role" && activeAdmin && input.nextRole !== "admin");
   if (removesAdmin && input.adminCount <= 1) return false;
   return true;
 }

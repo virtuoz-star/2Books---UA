@@ -14,7 +14,14 @@
     {
       "binding": "DB",
       "database_name": "2books",
+      // Local dev accepts this all-zero id. Replace it before `bun run deploy`
+      // or `wrangler d1 migrations apply 2books --remote` (`wrangler d1 list`).
+      // Do not invent an id: the wrong one points production at a database that
+      // does not exist, and a real id here is what local wrangler uses too.
       "database_id": "00000000-0000-0000-0000-000000000000",
     },
   ],
+  // Secrets live in `.dev.vars.example` (there is no `.env.example`).
+  // Before deploy, set the public origin so auth does not follow the request Host:
+  // "vars": { "BETTER_AUTH_URL": "https://your-public-host" }
 }

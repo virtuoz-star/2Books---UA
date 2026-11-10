@@ -1,13 +1,11 @@
 import { useState, type FormEvent } from "react";
 
 import { importAdminCatalogFile, type AdminFailure } from "#/admin/api";
+import { Button } from "#/components/ui/button";
+import { Field, Input } from "#/components/ui/field";
+import { Notice } from "#/components/ui/notice";
 import { message } from "#/i18n/messages";
 import type { Locale } from "#/i18n/types";
-
-const fieldClass =
-  "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground";
-const primaryClass =
-  "cursor-pointer rounded-md border-0 bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-default disabled:opacity-60";
 
 const maxArchiveBytes = 25_000_000;
 
@@ -71,30 +69,18 @@ export function CatalogImport({
 
   return (
     <form onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-3">
-      <label
-        htmlFor="catalog-import"
-        className="flex flex-col gap-1.5 text-sm font-medium text-foreground"
+      <Field
+        id="catalog-import"
+        label={message(locale, "importFile")}
+        hint={message(locale, "importHint")}
       >
-        {message(locale, "importFile")}
-        <input
-          id="catalog-import"
-          name="catalog-import"
-          type="file"
-          accept=".2books"
-          disabled={locked}
-          className={fieldClass}
-        />
-      </label>
-      <p className="text-sm text-muted-foreground">{message(locale, "importHint")}</p>
-      {errorMessage ? (
-        <p role="alert" className="text-sm text-foreground">
-          {errorMessage}
-        </p>
-      ) : null}
+        <Input name="catalog-import" type="file" accept=".2books" disabled={locked} />
+      </Field>
+      {errorMessage ? <Notice tone="danger">{errorMessage}</Notice> : null}
       <div>
-        <button type="submit" disabled={locked} className={primaryClass}>
-          {message(locale, "importFile")}
-        </button>
+        <Button type="submit" disabled={locked} busy={pending}>
+          {message(locale, "importAction")}
+        </Button>
       </div>
     </form>
   );

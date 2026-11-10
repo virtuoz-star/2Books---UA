@@ -124,6 +124,25 @@ test("a word outside the reading list is null", () => {
   expect(lookupWord("xylophone's", "uk")).toBeNull();
 });
 
+test("inherited object keys are not glosses", () => {
+  expect(lookupWord("constructor", "uk")).toBeNull();
+  expect(lookupWord("constructor", "ru")).toBeNull();
+  expect(lookupWord("__proto__", "uk")).toBeNull();
+  expect(lookupWord("__proto__", "ru")).toBeNull();
+  expect(lookupWord("toString", "uk")).toBeNull();
+});
+
+test("inflected forms fall back to a glossary lemma", () => {
+  expect(Object.hasOwn(glosses, "watched")).toBe(false);
+  expect(lookupWord("watched", "ru")).toBe(lookupWord("watch", "ru"));
+  expect(Object.hasOwn(glosses, "watching")).toBe(false);
+  expect(lookupWord("watching", "uk")).toBe(lookupWord("watch", "uk"));
+  expect(Object.hasOwn(glosses, "quicker")).toBe(false);
+  expect(lookupWord("quicker", "uk")).toBe(lookupWord("quick", "uk"));
+  expect(Object.hasOwn(glosses, "prettier")).toBe(false);
+  expect(lookupWord("prettier", "ru")).toBe(lookupWord("pretty", "ru"));
+});
+
 test("lookup is case-insensitive", () => {
   expect(lookupWord("WATCH", "uk")).toBe(lookupWord("watch", "uk"));
   expect(lookupWord("PeNnIeS", "ru")).toBe(lookupWord("pennies", "ru"));
